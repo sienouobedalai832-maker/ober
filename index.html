@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ober — Made with LOOMER</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, SafeAreaView, Image, Animated, KeyboardAvoidingView, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+
+export default function TodoApp() {
+  const [tasks, setTasks] = useState([]);
+  const [taskText, setTaskText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const fadeAnim = new Animated.Value(0);
+
+  // Load tasks from localStorage when app starts
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('todoTasks');
+    if (savedTasks) {
+      setTasks(JSON.parse(savedTasks));
+    }
+  }, []);
+
+  // Save tasks to localStorage whenever they change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      localStorage.setItem('todoTasks', JSON.stringify(tasks));
+    }
+  }, [tasks]);
+
+  const addTask = () => {
+    if (taskText.trim() === '') return;
+
+    setIsLoading(true);
+    setTimeout(() => {
+      setTasks([...tasks, {
+        id: Date.now().toString(),
+        text: taskText,
+        completed: false,
+        createdAt: new Date().toISOString()
+      }]);
+      setTaskText('');
+      setIsLoading(false);
+    }, 300);
+  };
+
+  const toggleTaskCompletion = (taskId) => {
+    setTasks(tasks.map(task =>
+      task.id === taskId ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  const deleteTask = (taskId) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+
+  const clearAllTasks = () => {
+    setTasks([]);
+  };
+
+  const completeAllTasks = () => {
+    setTasks(tasks.map(task => ({ ...task, completed: true })));
+  };
+
+  const taskCount = tasks.length;
+  const completedCount = tasks.filter(task => task.completed).length;
+
+  // Animation au chargement
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>📝 Ma Liste de Tâches</Text>
+          <Text style={styles.subtitle}>Gestion efficace de vos activités</Text>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Ajouter une nouvelle tâche..."
+            placeholderTextColor="#999"
+            value={taskText}
+            onChangeText={setTaskText}
+            onSubmitEditing={addTask}
+            returnKeyType="done"
+            blurOnSubmit={true}
+            autoCapitalize="sentences"
+          />
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={addTask}
+            activeOpacity={0.7}
+            disabled={isLoading || taskText.trim() === ''}
+          >
+            {isLoading ? (
+              <Animated.View style={[styles.loadingIndicator, { opacity: fadeAnim }]} />
+            ) : (
+              <MaterialIcons name="add" size={30} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{taskCount}</Text>
+            <Text style={styles.statLabel}>Tâches</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{completedCount}</Text>
+            <Text style={styles.statLabel}>Complétées</Text>
+          </View>
+          <View style={[styles.statBox, styles.progressBox]}>
+            <Text style={styles.statNumber}>
+              {taskCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0}%
+            </Text>
+            <Text style={styles.statLabel}>Progression</Text>
+          </View>
+        </View>
+
+        {tasks.length > 0 ? (
+          <FlatList
+            data={tasks}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <Animated.View
+                style={[
+                  styles.taskItem,
+                  {
+                    opacity: fadeAnim,
+                    transform: [{
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0]
+                      })
+                    }]
+                  }
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.taskCheckbox}
+                  onPress={() => toggleTaskCompletion(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, item.completed && styles.checkboxCompleted]}>
+                    {item.completed && <MaterialIcons name="check" size={20} color="#fff" />}
+                  </View>
+                </TouchableOpacity>
+
+                <Text
+                  style={[styles.taskText, item.completed && styles.taskTextCompleted]}
+                  numberOfLines={2}
+                >
+                  {item.text}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => deleteTask(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="delete" size={24} color="#ff4444" />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="assignment" size={60} color="#ddd" />
+            <Text style={styles.emptyText}>Aucune tâche pour le moment</Text>
+            <Text style={styles.emptySubtext}>Ajoutez une nouvelle tâche pour commencer</Text>
+          </View>
+        )}
+
+        {tasks.length > 0 && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.clearButton]}
+              onPress={clearAllTasks}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="delete-sweep" size={24} color="#fff" />
+              <Text style={styles.actionButtonText}>Tout effacer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.completeAllButton]}
+              onPress={completeAllTasks}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="playlist-add-check" size={24} color="#fff" />
+              <Text style={styles.actionButtonText}>Tout cocher</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  keyboardA {
+    flex: 1,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 10,
+    backgroundColor: '#6200ee',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    margin: 15,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  addButton: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#6200ee',
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#6200ee",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  loadingIndicator: {
+    width: 30,
+    height: 30,
+    borderWidth: 3,
+    borderColor: '#fff',
+    borderTopColor: 'transparent',
+    borderRadius: 15,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    marginBottom: 15,
+  },
+  statBox: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  progressBox: {
+    backgroundColor: '#e8f5e9',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#6200ee',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  taskCheckbox: {
+    marginRight: 15,
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#6200ee',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxCompleted: {
+    backgroundColor: '#6200ee',
+    borderColor: '#6200ee',
+  },
+  taskText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    marginRight: 10,
+  },
+  taskTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14 '#999',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  clearButton: {
+    backgroundColor: '#ff4444',
+  },
+  completeAllButton: {
+    backgroundColor: '#00c853',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+});
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App || (() => React.createElement('div', null, 'App component not found'))));
+  </script>
+</body>
+</html>
